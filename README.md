@@ -10,8 +10,7 @@ same name are reused and left untouched.
 ## Setup
 
 - Python 3.8+ with `pip install discord.py`
-- A bot token with the **Server Members** intent not required; enable nothing
-  privileged — only the guilds intent is used
+- A bot token — no privileged intents are needed, only the default guilds intent
 - The bot must be a member of both guilds and have **Manage Channels** +
   **Manage Roles** in the target guild
 

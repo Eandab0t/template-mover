@@ -60,7 +60,7 @@ def section(name):
 # --- pure plan helpers (unit-tested, no API access) ---------------------------
 
 def overwrites_to_pairs(perms):
-    """Split a Permissions object into (allow_names, deny_names)."""
+    """Split a PermissionOverwrite into (allow_names, deny_names); unset flags are absent."""
     allow, deny = [], []
     for flag, value in perms:
         if value is True:
@@ -135,7 +135,7 @@ def plan_guild(template, target):
         else:
             planned_names.add(role.name.lower())
             perm_names = [flag for flag, value in role.permissions if value]
-            plan.append({"action": "role", "name": role.name, "template_id": role.id,
+            plan.append({"action": "role", "name": role.name,
                          "color": str(role.colour) if role.colour.value else None,
                          "hoist": role.hoist, "mentionable": role.mentionable,
                          "permissions": role.permissions.value, "permission_names": perm_names})
@@ -181,6 +181,23 @@ def format_overwrites(entries):
     return "    overwrites: " + "; ".join(parts)
 
 
+def item_line(item):
+    if item["action"] == "role":
+        perms = ", ".join(item["permission_names"][:6]) or "none"
+        if len(item["permission_names"]) > 6:
+            perms += f", +{len(item['permission_names']) - 6} more"
+        extras = [item["color"], "hoist" if item["hoist"] else None]
+        extras = ", ".join(e for e in extras if e)
+        return f"create role {item['name']} ({perms}{(' | ' + extras) if extras else ''})"
+    if item["action"] == "category":
+        return f"create category {item['name']}"
+    where = f" in {item['category']}" if item["category"] else ""
+    if item["kind"] == "text":
+        news = ", announcement" if item["news"] else ""
+        return f"create text #{item['name']}{where}{news}"
+    return f"create voice #{item['name']}{where} (limit {item['user_limit']})"
+
+
 def print_plan(plan, notes, template, target, apply_mode):
     print("TemplateMover")
     print(f"template : {template.name} ({template.id})")
@@ -188,25 +205,9 @@ def print_plan(plan, notes, template, target, apply_mode):
     print("mode     : " + ("apply" if apply_mode else "dry run (nothing will be created)"))
     labels = {"role": "Roles", "category": "Categories", "channel": "Channels"}
     for action, label in labels.items():
-        items = [i for i in plan if i["action"] == action]
         section(label)
-        for item in items:
-            if action == "role":
-                perms = ", ".join(item["permission_names"][:6]) or "none"
-                if len(item["permission_names"]) > 6:
-                    perms += f", +{len(item['permission_names']) - 6} more"
-                extras = [item["color"], "hoist" if item["hoist"] else None]
-                extras = ", ".join(e for e in extras if e)
-                ok(f"create role {item['name']} ({perms}{(' | ' + extras) if extras else ''})")
-            elif action == "category":
-                ok(f"create category {item['name']}")
-            elif item["kind"] == "text":
-                where = f" in {item['category']}" if item["category"] else ""
-                news = ", announcement" if item["news"] else ""
-                ok(f"create text #{item['name']}{where}{news}")
-            else:
-                where = f" in {item['category']}" if item["category"] else ""
-                ok(f"create voice #{item['name']}{where} (limit {item['user_limit']})")
+        for item in (i for i in plan if i["action"] == action):
+            ok(item_line(item))
             line = format_overwrites(item.get("overwrites", []))
             if line:
                 print(line)
